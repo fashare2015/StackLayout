@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import com.fashare.stack_layout.widget.ScrollManager;
+import com.fashare.stack_layout.widget.StackPageTransformer;
 
 /**
  * Created by jinliangshan on 17/5/9.
@@ -117,6 +118,12 @@ public class StackLayout extends FrameLayout {
             for(int i=0; i<adapter.getItemCount(); i++) {
                 ViewHolder viewHolder = adapter.getViewHolder(StackLayout.this, i);
                 StackLayout.this.addView(viewHolder.itemView, 0);
+
+            }
+
+            for(int i=0; i<mAdapter.getItemCount(); i++) {
+                View page = getChildAt(i);
+                mPageTransformer.transformPage(page, (int)page.getTag(R.id.sl_item_pos) - mCurrentItem);
             }
         }
     }
@@ -154,7 +161,7 @@ public class StackLayout extends FrameLayout {
             int newTop = top;
 //            newTop = Math.max(newTop, 0);
 //            newTop = Math.min(newTop, ((ViewGroup)child.getParent()).getHeight() - child.getHeight());
-            return newTop;
+            return 0;
         }
 
         @Override
@@ -165,7 +172,11 @@ public class StackLayout extends FrameLayout {
         @Override
         public void onViewPositionChanged(View changedView, int left, int top, int dx, int dy) {
             int totalRange = ((ViewGroup)changedView.getParent()).getWidth();
-            mPageTransformer.transformPage(changedView, (1.0f * (changedView.getLeft() - 0))/totalRange);
+            float position = (1.0f * (changedView.getLeft() - 0))/totalRange;
+            for(int i=0; i<mAdapter.getItemCount(); i++) {
+                View page = getChildAt(i);
+                mPageTransformer.transformPage(page, -Math.abs(position) + (int)page.getTag(R.id.sl_item_pos) - mCurrentItem);
+            }
         }
 
         // 手指释放的时候回调
@@ -178,7 +189,6 @@ public class StackLayout extends FrameLayout {
                     @Override
                     public void onProgress(View view, float scale) {
                         Log.d(TAG, scale + "");
-//                        mPageTransformer.transformPage(view, (1.0f * (view.getLeft() - 0))/totalRange);
                     }
 
                     @Override
@@ -190,7 +200,6 @@ public class StackLayout extends FrameLayout {
                     @Override
                     public void onProgress(View view, float scale) {
                         Log.d(TAG, scale + "");
-//                        mPageTransformer.transformPage(view, (1.0f * (view.getLeft() - 0))/totalRange);
                     }
 
                     @Override
@@ -199,6 +208,11 @@ public class StackLayout extends FrameLayout {
                         setCurrentItem((curPos + 1) % mAdapter.getItemCount());
                         removeView(view);
                         addView(mAdapter.getViewHolder(StackLayout.this, curPos).itemView, 0);
+
+                        for(int i=0; i<mAdapter.getItemCount(); i++) {
+                            View page = getChildAt(i);
+                            mPageTransformer.transformPage(page, (int)page.getTag(R.id.sl_item_pos) - mCurrentItem);
+                        }
                     }
                 });
             }
@@ -221,19 +235,20 @@ public class StackLayout extends FrameLayout {
     }
 
     // ------ PageTransformer ------
-    private PageTransformer mPageTransformer = PageTransformer.EMPTY;
+    private PageTransformer mPageTransformer = new StackPageTransformer();
 
     public void setPageTransformer(PageTransformer pageTransformer) {
         mPageTransformer = pageTransformer;
     }
 
-    public interface PageTransformer {
-        void transformPage(View page, float position);
+    public static abstract class PageTransformer {
+        public abstract void transformPage(View otherPage, float position);
+    }
 
-        PageTransformer EMPTY = new PageTransformer() {
-            @Override
-            public void transformPage(View page, float position) {}
-        };
+    @Override
+    public void addView(View child, int index, ViewGroup.LayoutParams params) {
+        super.addView(child, index, params);
+
     }
 }
 
