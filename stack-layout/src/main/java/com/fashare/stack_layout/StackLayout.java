@@ -3,18 +3,21 @@ package com.fashare.stack_layout;
 import android.content.Context;
 import android.database.DataSetObservable;
 import android.database.DataSetObserver;
-import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.ViewDragHelper;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
+import android.widget.FrameLayout;
+
+import com.fashare.stack_layout.widget.ScrollManager;
 
 /**
  * Created by jinliangshan on 17/5/9.
  */
-public class StackLayout extends LinearLayout {
+public class StackLayout extends FrameLayout {
+    public static final String TAG = "StackLayout";
 
     public StackLayout(Context context) {
         super(context);
@@ -32,7 +35,6 @@ public class StackLayout extends LinearLayout {
     }
 
     private void init() {
-
     }
 
     // ------ Adapter ------
@@ -65,6 +67,7 @@ public class StackLayout extends LinearLayout {
             VH viewHolder = onCreateViewHolder(parent, position);
             if(viewHolder != null) {
                 onBindViewHolder(viewHolder, position);
+                viewHolder.itemView.setTag(R.id.sl_item_pos, position);
                 return viewHolder;
             }else{
                 throw new IllegalArgumentException("onCreateViewHolder() -> viewHolder is null");
@@ -113,47 +116,45 @@ public class StackLayout extends LinearLayout {
             StackLayout.this.removeAllViews();
             for(int i=0; i<adapter.getItemCount(); i++) {
                 ViewHolder viewHolder = adapter.getViewHolder(StackLayout.this, i);
-                StackLayout.this.addView(viewHolder.itemView);
+                StackLayout.this.addView(viewHolder.itemView, 0);
             }
         }
     }
 
+    // ------ Current Item ------
+    private int mCurrentItem;
+
+    public void setCurrentItem(int item){
+        mCurrentItem = item;
+    }
+
+    public int getCurrentItem(){
+        return mCurrentItem;
+    }
+
     // ------ 事件分发 ------
-    @Override
-    public boolean onInterceptTouchEvent(MotionEvent event) {
-        return mViewDragHelper.shouldInterceptTouchEvent(event);
-    }
+    private ViewDragHelper mViewDragHelper = ViewDragHelper.create(this, new ViewDragHelper.Callback(){
+        private ScrollManager mScrollManager;
 
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        mViewDragHelper.processTouchEvent(event);
-        return true;
-    }
-
-    private static final float TOUCH_SLOP_SENSITIVITY = 1.f;
-    private DragCallback mDragCallback = new DragCallback();
-    private ViewDragHelper mViewDragHelper = ViewDragHelper.create(this, TOUCH_SLOP_SENSITIVITY, mDragCallback);
-
-    private class DragCallback extends ViewDragHelper.Callback{
-        // 仅捕获 mNestedScrollingChild
-        @Override
-        public boolean tryCaptureView(View child, int pointerId) {
-            boolean captureView = true;
-
-
-            return captureView;
+        public ScrollManager getScrollManager() {
+            if(mScrollManager == null)
+                mScrollManager = new ScrollManager(getViewDragHelper());
+            return mScrollManager;
         }
 
-        // 控制边界, 防止 mNestedScrollingChild 的头部超出边界
+        // 仅捕获 topChild, 即 最顶上的卡片 可拖动
+        @Override
+        public boolean tryCaptureView(View child, int pointerId) {
+            return (int)child.getTag(R.id.sl_item_pos) == mCurrentItem;
+        }
+
+        // 控制边界, 防止 child 超出上下边界
         @Override
         public int clampViewPositionVertical(View child, int top, int dy) {
-//            if(child == mNestedScrollingChild){
-//                int newTop = top;
-//                newTop = Math.max(newTop, mOriginTop);
-//                newTop = Math.min(newTop, mOriginTop + mDragToDismissRange);
-//                return newTop;
-//            }
-            return top;
+            int newTop = top;
+//            newTop = Math.max(newTop, 0);
+//            newTop = Math.min(newTop, ((ViewGroup)child.getParent()).getHeight() - child.getHeight());
+            return newTop;
         }
 
         @Override
@@ -161,51 +162,78 @@ public class StackLayout extends LinearLayout {
             return left;
         }
 
-        //
-//        // 需要指定 "滑动范围", 否则不会捕获 mNestedScrollingChild
-//        @Override
-//        public int getViewVerticalDragRange(View child) {
-//            return mDragToDismissRange;
-//        }
-//
-//        // 手指释放的时候回调
-//        @Override
-        public void onViewReleased(View releasedChild, float xvel, float yvel) {
-            smoothScrollTo(releasedChild, 0);
-        }
-    }
-
-    // ------ 滑动部分 begin ------
-    private void smoothScrollTo(View child, int finalTop){
-        mViewDragHelper.smoothSlideViewTo(child, 0, finalTop);
-        ViewCompat.postOnAnimation(child, new SettleRunnable(child));
-    }
-
-    /**
-     * smoothScrollTo() 中用到 mScroller,
-     * 以此 SettleRunnable 代替 @Override computeScroll().
-     *
-     * copy from {@link BottomSheetBehavior}
-     */
-    private class SettleRunnable implements Runnable {
-
-        private final View mView;
-
-        SettleRunnable(View view) {
-            mView = view;
-        }
-
         @Override
-        public void run() {
-            if (mViewDragHelper != null && mViewDragHelper.continueSettling(true)) {
-                ViewCompat.postOnAnimation(mView, this);    // 递归调用
+        public void onViewPositionChanged(View changedView, int left, int top, int dx, int dy) {
+            int totalRange = ((ViewGroup)changedView.getParent()).getWidth();
+            mPageTransformer.transformPage(changedView, (1.0f * (changedView.getLeft() - 0))/totalRange);
+        }
+
+        // 手指释放的时候回调
+        @Override
+        public void onViewReleased(View releasedChild, float xvel, float yvel) {
+            final int totalRange = ((ViewGroup)releasedChild.getParent()).getWidth();
+            int left = releasedChild.getLeft();
+            if(Math.abs(left - 0) < totalRange/2) {
+                getScrollManager().smoothScrollTo(releasedChild, 0, releasedChild.getTop(), new ScrollManager.Callback() {
+                    @Override
+                    public void onProgress(View view, float scale) {
+                        Log.d(TAG, scale + "");
+//                        mPageTransformer.transformPage(view, (1.0f * (view.getLeft() - 0))/totalRange);
+                    }
+
+                    @Override
+                    public void onComplete(View view) {}
+                });
+
+            }else {
+                getScrollManager().smoothScrollTo(releasedChild, totalRange * (left < 0 ? -1 : 1), releasedChild.getTop(), new ScrollManager.Callback() {
+                    @Override
+                    public void onProgress(View view, float scale) {
+                        Log.d(TAG, scale + "");
+//                        mPageTransformer.transformPage(view, (1.0f * (view.getLeft() - 0))/totalRange);
+                    }
+
+                    @Override
+                    public void onComplete(View view) {
+                        int curPos = getCurrentItem();
+                        setCurrentItem((curPos + 1) % mAdapter.getItemCount());
+                        removeView(view);
+                        addView(mAdapter.getViewHolder(StackLayout.this, curPos).itemView, 0);
+                    }
+                });
             }
         }
+    });
+
+    private ViewDragHelper getViewDragHelper(){
+        return mViewDragHelper;
     }
 
-    private void scrollTo(View child, int finalTop){
-        child.setTop(finalTop);
-        ViewCompat.postInvalidateOnAnimation(child);
+    @Override
+    public boolean onInterceptTouchEvent(MotionEvent event) {
+        return getViewDragHelper().shouldInterceptTouchEvent(event);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        getViewDragHelper().processTouchEvent(event);
+        return true;
+    }
+
+    // ------ PageTransformer ------
+    private PageTransformer mPageTransformer = PageTransformer.EMPTY;
+
+    public void setPageTransformer(PageTransformer pageTransformer) {
+        mPageTransformer = pageTransformer;
+    }
+
+    public interface PageTransformer {
+        void transformPage(View page, float position);
+
+        PageTransformer EMPTY = new PageTransformer() {
+            @Override
+            public void transformPage(View page, float position) {}
+        };
     }
 }
 

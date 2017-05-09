@@ -3,6 +3,7 @@ package com.fashare.stacklayout;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,6 +30,14 @@ public class MainActivity extends AppCompatActivity {
     private void initView() {
         mStackLayout = (StackLayout) findViewById(R.id.stack_layout);
         mStackLayout.setAdapter(mAdapter = new Adapter(Arrays.asList("1", "2", "3")));
+
+        mStackLayout.setPageTransformer(new StackLayout.PageTransformer() {
+            @Override
+            public void transformPage(View page, float position) {
+                Log.d("transformPage", "" + position);
+                page.setAlpha(1 - Math.abs(position));
+            }
+        });
 
         new Handler().postDelayed(new Runnable() {
             @Override
@@ -58,7 +67,10 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onBindViewHolder(ViewHolder holder, int position) {
             holder.mTextView.setText(mData.get(position));
-            holder.itemView.setBackgroundColor(new Random().nextInt());
+            holder.itemView.setBackgroundColor(new Random().nextInt() | 0xff000000);
+            ViewGroup.MarginLayoutParams lp = ((ViewGroup.MarginLayoutParams) holder.itemView.getLayoutParams());
+            lp.topMargin = position * 50;
+            holder.itemView.setLayoutParams(lp);
         }
 
         @Override
