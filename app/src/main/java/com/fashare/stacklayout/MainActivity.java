@@ -7,6 +7,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.fashare.stack_layout.StackLayout;
 
@@ -33,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                mAdapter.setData(Arrays.asList("5", "6", "7", "8"));
+                mAdapter.setData(Arrays.asList("5", "6", "7", "8", "9"));
                 mAdapter.notifyDataSetChanged();
             }
         }, 4000);
@@ -56,9 +57,16 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        public void onBindViewHolder(ViewHolder holder, int position) {
+        public void onBindViewHolder(ViewHolder holder, final int position) {
             holder.mTextView.setText(mData.get(position));
             holder.itemView.setBackgroundColor(new Random().nextInt() | 0xff000000);
+
+            holder.itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Toast.makeText(MainActivity.this, "" + position, Toast.LENGTH_SHORT).show();
+                }
+            });
         }
 
         @Override

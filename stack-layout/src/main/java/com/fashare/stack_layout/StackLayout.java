@@ -114,16 +114,12 @@ public class StackLayout extends FrameLayout {
         }
 
         private void dataChanged(Adapter adapter) {
+            // remove 前, 取消所有动画
+            mViewDragHelper.abort();
             StackLayout.this.removeAllViews();
             for(int i=0; i<adapter.getItemCount(); i++) {
                 ViewHolder viewHolder = adapter.getViewHolder(StackLayout.this, i);
                 StackLayout.this.addView(viewHolder.itemView, 0);
-
-            }
-
-            for(int i=0; i<mAdapter.getItemCount(); i++) {
-                View page = getChildAt(i);
-                mPageTransformer.transformPage(page, (int)page.getTag(R.id.sl_item_pos) - mCurrentItem);
             }
         }
     }
@@ -142,6 +138,7 @@ public class StackLayout extends FrameLayout {
     // ------ 事件分发 ------
     private ViewDragHelper mViewDragHelper = ViewDragHelper.create(this, new ViewDragHelper.Callback(){
         private ScrollManager mScrollManager;
+        private View mParent = StackLayout.this;
 
         public ScrollManager getScrollManager() {
             if(mScrollManager == null)
@@ -153,6 +150,16 @@ public class StackLayout extends FrameLayout {
         @Override
         public boolean tryCaptureView(View child, int pointerId) {
             return (int)child.getTag(R.id.sl_item_pos) == mCurrentItem;
+        }
+
+        @Override
+        public int getViewVerticalDragRange(View child) {
+            return mParent.getHeight();
+        }
+
+        @Override
+        public int getViewHorizontalDragRange(View child) {
+            return mParent.getWidth();
         }
 
         // 控制边界, 防止 child 超出上下边界
@@ -171,18 +178,15 @@ public class StackLayout extends FrameLayout {
 
         @Override
         public void onViewPositionChanged(View changedView, int left, int top, int dx, int dy) {
-            int totalRange = ((ViewGroup)changedView.getParent()).getWidth();
+            int totalRange = mParent.getWidth();
             float position = (1.0f * (changedView.getLeft() - 0))/totalRange;
-            for(int i=0; i<mAdapter.getItemCount(); i++) {
-                View page = getChildAt(i);
-                mPageTransformer.transformPage(page, -Math.abs(position) + (int)page.getTag(R.id.sl_item_pos) - mCurrentItem);
-            }
+            transformPage(position);
         }
 
         // 手指释放的时候回调
         @Override
         public void onViewReleased(View releasedChild, float xvel, float yvel) {
-            final int totalRange = ((ViewGroup)releasedChild.getParent()).getWidth();
+            final int totalRange = mParent.getWidth();
             int left = releasedChild.getLeft();
             if(Math.abs(left - 0) < totalRange/2) {
                 getScrollManager().smoothScrollTo(releasedChild, 0, releasedChild.getTop(), new ScrollManager.Callback() {
@@ -208,11 +212,6 @@ public class StackLayout extends FrameLayout {
                         setCurrentItem((curPos + 1) % mAdapter.getItemCount());
                         removeView(view);
                         addView(mAdapter.getViewHolder(StackLayout.this, curPos).itemView, 0);
-
-                        for(int i=0; i<mAdapter.getItemCount(); i++) {
-                            View page = getChildAt(i);
-                            mPageTransformer.transformPage(page, (int)page.getTag(R.id.sl_item_pos) - mCurrentItem);
-                        }
                     }
                 });
             }
@@ -245,10 +244,20 @@ public class StackLayout extends FrameLayout {
         public abstract void transformPage(View otherPage, float position);
     }
 
-    @Override
-    public void addView(View child, int index, ViewGroup.LayoutParams params) {
-        super.addView(child, index, params);
+    private void transformPage(float position) {
+        if(mAdapter == null)
+            return ;
+        int itemCount = mAdapter.getItemCount();
+        for(int i=0; i<itemCount; i++) {
+            View page = getChildAt(i);
+            mPageTransformer.transformPage(page, -Math.abs(position) + ((int)page.getTag(R.id.sl_item_pos) - mCurrentItem + itemCount) % itemCount);
+        }
+    }
 
+    @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        transformPage(0);
     }
 }
 

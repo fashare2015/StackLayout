@@ -51,11 +51,10 @@ public class StackPageTransformer extends StackLayout.PageTransformer {
     }
 
     public final void transformPage(View view, float position) {
-
         View parent = (View) view.getParent();
 
-        int pageWidth = parent.getWidth();
-        int pageHeight = parent.getHeight();
+        int pageWidth = parent.getMeasuredWidth();
+        int pageHeight = parent.getMeasuredHeight();
 
         view.setPivotX(pageWidth/2);
         view.setPivotY(0);
@@ -64,18 +63,18 @@ public class StackPageTransformer extends StackLayout.PageTransformer {
 
         if (position < -1) { // [-Infinity,-1)
             // This page is way off-screen to the left.
-            view.setAlpha(0);
+            view.setVisibility(View.GONE);
 
         } else if (position <= 0) { // [-1,0]
             // Use the default slide transition when moving to the left page
-            view.setAlpha(1);
+            view.setVisibility(View.VISIBLE);
 
             view.setTranslationX(0);
             view.setScaleX(mMaxScale);
             view.setScaleY(mMaxScale);
 
-//            if(!view.isClickable())
-//                view.setClickable(true);
+            if(!view.isClickable())
+                view.setClickable(true);
 
         } else if (position <= bottomPos) { // (0, mStackCount-1]
             int index = (int)position;  // 整数部分
@@ -83,8 +82,7 @@ public class StackPageTransformer extends StackLayout.PageTransformer {
             float maxScale = mMaxScale * (float) Math.pow(mPowBase, index);
             float curScale = mMaxScale * (float) Math.pow(mPowBase, position);
 
-            // Fade the page out.
-            view.setAlpha(1);
+            view.setVisibility(View.VISIBLE);
 
             // Counteract the default slide transition
             view.setTranslationY(pageHeight * (1-curScale)
@@ -96,12 +94,12 @@ public class StackPageTransformer extends StackLayout.PageTransformer {
             view.setScaleX(scaleFactor);
             view.setScaleY(scaleFactor);
 
-//            if(position == 1 && view.isClickable())
-//                view.setClickable(false);
+            if(view.isClickable())
+                view.setClickable(false);
 
         } else { // (mStackCount-1, +Infinity]
             // This page is way off-screen to the right.
-            view.setAlpha(0);
+            view.setVisibility(View.GONE);
         }
     }
 }
