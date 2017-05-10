@@ -118,7 +118,7 @@ public class StackLayout extends FrameLayout {
             mViewDragHelper.abort();
             StackLayout.this.removeAllViews();
             for(int i=0; i<adapter.getItemCount(); i++) {
-                ViewHolder viewHolder = adapter.getViewHolder(StackLayout.this, i);
+                ViewHolder viewHolder = adapter.getViewHolder(StackLayout.this, (i + getCurrentItem()) % adapter.getItemCount());
                 StackLayout.this.addView(viewHolder.itemView, 0);
             }
         }
@@ -211,7 +211,7 @@ public class StackLayout extends FrameLayout {
                         int curPos = getCurrentItem();
                         setCurrentItem((curPos + 1) % mAdapter.getItemCount());
                         removeView(view);
-                        addView(mAdapter.getViewHolder(StackLayout.this, curPos).itemView, 0);
+                        addView(view, 0);
                     }
                 });
             }
