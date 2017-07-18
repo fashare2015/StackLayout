@@ -1,4 +1,4 @@
-package com.fashare.stack_layout.widget;
+package com.fashare.stack_layout.transformer;
 
 /**
  * User: fashare(153614131@qq.com)
@@ -15,15 +15,14 @@ import com.fashare.stack_layout.StackLayout;
  * User: fashare(153614131@qq.com)
  * Date: 2017-02-16
  * Time: 22:26
- * <br/><br/>
- *
- * 让 ViewPager 堆成栈
  * <br/>
+ *
+ * 堆叠效果实现, 默认的 PageTransformer
  *
  * 灵感来源:
  * <a href="http://hukai.me/android-training-course-in-chinese/animations/screen-slide.html">Depth Page Transformer<a/>
  */
-public class StackPageTransformer extends StackLayout.PageTransformer {
+public final class StackPageTransformer extends StackLayout.PageTransformer {
     private float mMinScale;    // 栈底: 最小页面缩放比
     private float mMaxScale;    // 栈顶: 最大页面缩放比
     private int mStackCount;    // 栈内页面数
@@ -47,25 +46,28 @@ public class StackPageTransformer extends StackLayout.PageTransformer {
     }
 
     public StackPageTransformer() {
-        this(0.5f, 0.8f, 5);
+        this(0.8f, 0.95f, 5);
     }
 
-    public final void transformPage(View view, float position) {
+    public final void transformPage(View view, float position, boolean isSwipeLeft) {
         View parent = (View) view.getParent();
 
         int pageWidth = parent.getMeasuredWidth();
         int pageHeight = parent.getMeasuredHeight();
 
         view.setPivotX(pageWidth/2);
-        view.setPivotY(0);
+        view.setPivotY(pageHeight);
 
         float bottomPos = mStackCount-1;
+
+        if (view.isClickable())
+            view.setClickable(false);
 
         if (position < -1) { // [-Infinity,-1)
             // This page is way off-screen to the left.
             view.setVisibility(View.GONE);
 
-        } else if (position <= 0) { // [-1,0]
+        } else if (position < 0) { // [-1,0)
             // Use the default slide transition when moving to the left page
             view.setVisibility(View.VISIBLE);
 
@@ -73,10 +75,7 @@ public class StackPageTransformer extends StackLayout.PageTransformer {
             view.setScaleX(mMaxScale);
             view.setScaleY(mMaxScale);
 
-            if(!view.isClickable())
-                view.setClickable(true);
-
-        } else if (position <= bottomPos) { // (0, mStackCount-1]
+        } else if (position <= bottomPos) { // [0, mStackCount-1]
             int index = (int)position;  // 整数部分
             float minScale = mMaxScale * (float) Math.pow(mPowBase, index+1);
             float maxScale = mMaxScale * (float) Math.pow(mPowBase, index);
@@ -85,17 +84,18 @@ public class StackPageTransformer extends StackLayout.PageTransformer {
             view.setVisibility(View.VISIBLE);
 
             // Counteract the default slide transition
-            view.setTranslationY(pageHeight * (1-curScale)
-                    - pageHeight * (1-mMaxScale) * (bottomPos-position) / bottomPos);
+            view.setTranslationY(- pageHeight * (1-mMaxScale) * (bottomPos-position) / bottomPos);
 
             // Scale the page down (between minScale and maxScale)
-            float scaleFactor = minScale
-                    + (maxScale - minScale) * (1 - Math.abs(position - index));
+            float scaleFactor = minScale + (maxScale - minScale) * (1 - Math.abs(position - index));
             view.setScaleX(scaleFactor);
             view.setScaleY(scaleFactor);
 
-            if(view.isClickable())
-                view.setClickable(false);
+            // 只有最上面一张可点击
+            if(position == 0){
+                if(!view.isClickable())
+                    view.setClickable(true);
+            }
 
         } else { // (mStackCount-1, +Infinity]
             // This page is way off-screen to the right.

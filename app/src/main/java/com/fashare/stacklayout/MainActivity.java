@@ -3,6 +3,7 @@ package com.fashare.stacklayout;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.CardView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,6 +11,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.fashare.stack_layout.StackLayout;
+import com.fashare.stack_layout.transformer.AlphaTransformer;
+import com.fashare.stack_layout.transformer.AngleTransformer;
+import com.fashare.stack_layout.transformer.StackPageTransformer;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,11 +34,16 @@ public class MainActivity extends AppCompatActivity {
     private void initView() {
         mStackLayout = (StackLayout) findViewById(R.id.stack_layout);
         mStackLayout.setAdapter(mAdapter = new Adapter(Arrays.asList("1", "2", "3")));
+        mStackLayout.addPageTransformer(
+                new StackPageTransformer(),
+                new AlphaTransformer(),
+                new AngleTransformer()
+        );
 
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                mAdapter.setData(Arrays.asList("5", "6", "7", "8", "9"));
+                mAdapter.setData(Arrays.asList("5", "6", "7", "8", "9", "10", "11", "12"));
                 mAdapter.notifyDataSetChanged();
             }
         }, 4000);
@@ -53,13 +62,13 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public ViewHolder onCreateViewHolder(ViewGroup parent, int position) {
-            return new ViewHolder(LayoutInflater.from(parent.getContext()).inflate(android.R.layout.simple_list_item_1, parent, false));
+            return new ViewHolder(LayoutInflater.from(parent.getContext()).inflate(R.layout.item_card, parent, false));
         }
 
         @Override
         public void onBindViewHolder(ViewHolder holder, final int position) {
             holder.mTextView.setText(mData.get(position));
-            holder.itemView.setBackgroundColor(new Random().nextInt() | 0xff000000);
+            ((CardView)holder.itemView).setCardBackgroundColor(new Random().nextInt() | 0xff000000);
 
             holder.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -78,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
             TextView mTextView;
             public ViewHolder(View itemView) {
                 super(itemView);
-                mTextView = (TextView) itemView.findViewById(android.R.id.text1);
+                mTextView = (TextView) itemView.findViewById(R.id.tv);
             }
         }
 

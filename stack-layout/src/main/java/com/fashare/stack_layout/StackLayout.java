@@ -11,8 +11,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import com.fashare.stack_layout.transformer.StackPageTransformer;
 import com.fashare.stack_layout.widget.ScrollManager;
-import com.fashare.stack_layout.widget.StackPageTransformer;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Created by jinliangshan on 17/5/9.
@@ -121,17 +125,19 @@ public class StackLayout extends FrameLayout {
                 ViewHolder viewHolder = adapter.getViewHolder(StackLayout.this, (i + getCurrentItem()) % adapter.getItemCount());
                 StackLayout.this.addView(viewHolder.itemView, 0);
             }
+
+            transformPage(0, true);
         }
     }
 
     // ------ Current Item ------
     private int mCurrentItem;
 
-    public void setCurrentItem(int item){
+    private void setCurrentItem(int item){
         mCurrentItem = item;
     }
 
-    public int getCurrentItem(){
+    private int getCurrentItem(){
         return mCurrentItem;
     }
 
@@ -149,7 +155,8 @@ public class StackLayout extends FrameLayout {
         // 仅捕获 topChild, 即 最顶上的卡片 可拖动
         @Override
         public boolean tryCaptureView(View child, int pointerId) {
-            return (int)child.getTag(R.id.sl_item_pos) == mCurrentItem;
+//            Log.d(TAG, "tryCaptureView: " + child.getTag(R.id.sl_item_pos));
+            return (int)child.getTag(R.id.sl_item_pos) == getCurrentItem();
         }
 
         @Override
@@ -162,13 +169,9 @@ public class StackLayout extends FrameLayout {
             return mParent.getWidth();
         }
 
-        // 控制边界, 防止 child 超出上下边界
         @Override
         public int clampViewPositionVertical(View child, int top, int dy) {
-            int newTop = top;
-//            newTop = Math.max(newTop, 0);
-//            newTop = Math.min(newTop, ((ViewGroup)child.getParent()).getHeight() - child.getHeight());
-            return 0;
+            return top;
         }
 
         @Override
@@ -178,18 +181,24 @@ public class StackLayout extends FrameLayout {
 
         @Override
         public void onViewPositionChanged(View changedView, int left, int top, int dx, int dy) {
+//            Log.d(TAG, "onViewPositionChanged: " + changedView.getTag(R.id.sl_item_pos));
+            if(!tryCaptureView(changedView, 0)) // 有时候 changedView 和 getCurrentItem 会不一致, 还得再判断一下
+                return ;
             int totalRange = mParent.getWidth();
             float position = (1.0f * (changedView.getLeft() - 0))/totalRange;
-            transformPage(position);
+            transformPage(position, changedView.getLeft() < 0);
         }
 
         // 手指释放的时候回调
         @Override
         public void onViewReleased(View releasedChild, float xvel, float yvel) {
+//            Log.d(TAG, "onViewReleased: " + releasedChild.getTag(R.id.sl_item_pos));
+            if(!tryCaptureView(releasedChild, 0))
+                return ;
             final int totalRange = mParent.getWidth();
             int left = releasedChild.getLeft();
             if(Math.abs(left - 0) < totalRange/2) {
-                getScrollManager().smoothScrollTo(releasedChild, 0, releasedChild.getTop(), new ScrollManager.Callback() {
+                getScrollManager().smoothScrollTo(releasedChild, 0, 0, new ScrollManager.Callback() {
                     @Override
                     public void onProgress(View view, float scale) {
                         Log.d(TAG, scale + "");
@@ -208,10 +217,9 @@ public class StackLayout extends FrameLayout {
 
                     @Override
                     public void onComplete(View view) {
-                        int curPos = getCurrentItem();
-                        setCurrentItem((curPos + 1) % mAdapter.getItemCount());
                         removeView(view);
                         addView(view, 0);
+                        setCurrentItem((getCurrentItem() + 1) % mAdapter.getItemCount());
                     }
                 });
             }
@@ -234,30 +242,42 @@ public class StackLayout extends FrameLayout {
     }
 
     // ------ PageTransformer ------
-    private PageTransformer mPageTransformer = new StackPageTransformer();
+    private List<PageTransformer> mPageTransformerList = new ArrayList<>();
 
-    public void setPageTransformer(PageTransformer pageTransformer) {
-        mPageTransformer = pageTransformer;
+    public void addPageTransformer(PageTransformer... pageTransformerList) {
+        mPageTransformerList.addAll(Arrays.asList(pageTransformerList));
     }
 
     public static abstract class PageTransformer {
-        public abstract void transformPage(View otherPage, float position);
+        public abstract void transformPage(View otherPage, float position, boolean isSwipeLeft);
     }
 
-    private void transformPage(float position) {
+    private void transformPage(float topPagePos, boolean isSwipeLeft) {
         if(mAdapter == null)
             return ;
+        List<PageTransformer> list = new ArrayList<>(mPageTransformerList); // 保护性复制, 防止污染原来的list
+        if(list.isEmpty())
+            list.add(new StackPageTransformer());   // default PageTransformer
+
         int itemCount = mAdapter.getItemCount();
         for(int i=0; i<itemCount; i++) {
             View page = getChildAt(i);
-            mPageTransformer.transformPage(page, -Math.abs(position) + ((int)page.getTag(R.id.sl_item_pos) - mCurrentItem + itemCount) % itemCount);
+            if(page == null)
+                return ;
+            for (PageTransformer pageTransformer : list) {
+                pageTransformer.transformPage(page, -Math.abs(topPagePos) + ((int) page.getTag(R.id.sl_item_pos) - getCurrentItem() + itemCount) % itemCount, isSwipeLeft);
+            }
         }
     }
 
+    private boolean isFirstLayout = true;
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
-        transformPage(0);
+        if(isFirstLayout) {
+            transformPage(0, true);
+            isFirstLayout = false;
+        }
     }
 }
 
