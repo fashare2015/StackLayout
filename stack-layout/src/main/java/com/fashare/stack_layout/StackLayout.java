@@ -3,9 +3,9 @@ package com.fashare.stack_layout;
 import android.content.Context;
 import android.database.DataSetObservable;
 import android.database.DataSetObserver;
+import android.support.annotation.NonNull;
 import android.support.v4.widget.ViewDragHelper;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -43,14 +43,14 @@ public class StackLayout extends FrameLayout {
     }
 
     // ------ Adapter ------
-    private Adapter mAdapter;
+    @NonNull private Adapter mAdapter = Adapter.EMPTY;
     ItemObserver mItemObserver = new ItemObserver();
 
     public Adapter getAdapter() {
         return mAdapter;
     }
 
-    public void setAdapter(Adapter adapter) {
+    public void setAdapter(@NonNull Adapter adapter) {
         mAdapter = adapter;
         onSetAdapter(adapter);
     }
@@ -61,6 +61,17 @@ public class StackLayout extends FrameLayout {
     }
 
     public static abstract class Adapter<VH extends ViewHolder>{
+        public static Adapter<?> EMPTY = new Adapter<ViewHolder>() {
+            @Override
+            public ViewHolder onCreateViewHolder(ViewGroup parent, int position) { return null; }
+
+            @Override
+            public void onBindViewHolder(ViewHolder holder, int position) {}
+
+            @Override
+            public int getItemCount() { return 0; }
+        };
+
         // ------------ ViewHolder -------------
         public abstract VH onCreateViewHolder(ViewGroup parent, int position);
 
@@ -72,7 +83,7 @@ public class StackLayout extends FrameLayout {
             VH viewHolder = onCreateViewHolder(parent, position);
             if(viewHolder != null) {
                 onBindViewHolder(viewHolder, position);
-                viewHolder.itemView.setTag(R.id.sl_item_pos, position);
+                ViewHolder.setPosition(viewHolder.itemView, position);
                 return viewHolder;
             }else{
                 throw new IllegalArgumentException("onCreateViewHolder() -> viewHolder is null");
@@ -104,6 +115,14 @@ public class StackLayout extends FrameLayout {
             }
             this.itemView = itemView;
         }
+
+        private static void setPosition(View view, int pos){
+            view.setTag(R.id.sl_item_pos, pos);
+        }
+
+        public static int getPosition(View view){
+            return (int)view.getTag(R.id.sl_item_pos);
+        }
     }
 
     private class ItemObserver extends DataSetObserver {
@@ -121,8 +140,8 @@ public class StackLayout extends FrameLayout {
             // remove 前, 取消所有动画
             mViewDragHelper.abort();
             StackLayout.this.removeAllViews();
-            for(int i=0; i<adapter.getItemCount(); i++) {
-                ViewHolder viewHolder = adapter.getViewHolder(StackLayout.this, (i + getCurrentItem()) % adapter.getItemCount());
+            for(int i=getCurrentItem(); i<adapter.getItemCount(); i ++) {
+                ViewHolder viewHolder = adapter.getViewHolder(StackLayout.this, i);
                 StackLayout.this.addView(viewHolder.itemView, 0);
             }
 
@@ -156,7 +175,7 @@ public class StackLayout extends FrameLayout {
         @Override
         public boolean tryCaptureView(View child, int pointerId) {
 //            Log.d(TAG, "tryCaptureView: " + child.getTag(R.id.sl_item_pos));
-            return (int)child.getTag(R.id.sl_item_pos) == getCurrentItem();
+            return ViewHolder.getPosition(child) == getCurrentItem();
         }
 
         @Override
@@ -196,12 +215,12 @@ public class StackLayout extends FrameLayout {
             if(!tryCaptureView(releasedChild, 0))
                 return ;
             final int totalRange = mParent.getWidth();
-            int left = releasedChild.getLeft();
+            final int left = releasedChild.getLeft();
             if(Math.abs(left - 0) < totalRange/2) {
                 getScrollManager().smoothScrollTo(releasedChild, 0, 0, new ScrollManager.Callback() {
                     @Override
                     public void onProgress(View view, float scale) {
-                        Log.d(TAG, scale + "");
+//                        Log.d(TAG, scale + "");
                     }
 
                     @Override
@@ -212,14 +231,15 @@ public class StackLayout extends FrameLayout {
                 getScrollManager().smoothScrollTo(releasedChild, totalRange * (left < 0 ? -1 : 1), releasedChild.getTop(), new ScrollManager.Callback() {
                     @Override
                     public void onProgress(View view, float scale) {
-                        Log.d(TAG, scale + "");
+//                        Log.d(TAG, scale + "");
                     }
 
                     @Override
                     public void onComplete(View view) {
                         removeView(view);
-                        addView(view, 0);
-                        setCurrentItem((getCurrentItem() + 1) % mAdapter.getItemCount());
+//                        addView(view, 0);
+                        setCurrentItem(getCurrentItem() + 1);
+                        mOnSwipeListener.onSwiped(view, ViewHolder.getPosition(view), left < 0, mAdapter.getItemCount() - getCurrentItem());
                     }
                 });
             }
@@ -253,8 +273,6 @@ public class StackLayout extends FrameLayout {
     }
 
     private void transformPage(float topPagePos, boolean isSwipeLeft) {
-        if(mAdapter == null)
-            return ;
         List<PageTransformer> list = new ArrayList<>(mPageTransformerList); // 保护性复制, 防止污染原来的list
         if(list.isEmpty())
             list.add(new StackPageTransformer());   // default PageTransformer
@@ -265,7 +283,7 @@ public class StackLayout extends FrameLayout {
             if(page == null)
                 return ;
             for (PageTransformer pageTransformer : list) {
-                pageTransformer.transformPage(page, -Math.abs(topPagePos) + ((int) page.getTag(R.id.sl_item_pos) - getCurrentItem() + itemCount) % itemCount, isSwipeLeft);
+                pageTransformer.transformPage(page, -Math.abs(topPagePos) + ViewHolder.getPosition(page) - getCurrentItem(), isSwipeLeft);
             }
         }
     }
@@ -278,6 +296,22 @@ public class StackLayout extends FrameLayout {
             transformPage(0, true);
             isFirstLayout = false;
         }
+    }
+
+    // ------ OnSwipeListener ------
+    @NonNull private OnSwipeListener mOnSwipeListener = OnSwipeListener.EMPTY;
+
+    public void setOnSwipeListener(@NonNull OnSwipeListener onSwipeListener) {
+        mOnSwipeListener = onSwipeListener;
+    }
+
+    public static abstract class OnSwipeListener{
+        public static final OnSwipeListener EMPTY = new OnSwipeListener() {
+            @Override
+            public void onSwiped(View swipedView, int swipedItemPos, boolean isSwipeLeft, int itemLeft) {}
+        };
+
+        public abstract void onSwiped(View swipedView, int swipedItemPos, boolean isSwipeLeft, int itemLeft);
     }
 }
 

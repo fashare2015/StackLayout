@@ -9,6 +9,8 @@ import android.view.View;
  * Date: 2017-05-09
  * Time: 22:46
  * <br/><br/>
+ *
+ * 滑动到指定位置, 实现卡片回弹的效果
  */
 public class ScrollManager {
     private ViewDragHelper mViewDragHelper;

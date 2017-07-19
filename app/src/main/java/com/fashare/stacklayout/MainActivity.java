@@ -11,10 +11,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.fashare.stack_layout.StackLayout;
-import com.fashare.stack_layout.transformer.AlphaTransformer;
 import com.fashare.stack_layout.transformer.AngleTransformer;
 import com.fashare.stack_layout.transformer.StackPageTransformer;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
@@ -23,30 +23,48 @@ public class MainActivity extends AppCompatActivity {
     StackLayout mStackLayout;
     Adapter mAdapter;
 
+    List<String> mData;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         initView();
+        loadData(0);
     }
 
     private void initView() {
         mStackLayout = (StackLayout) findViewById(R.id.stack_layout);
-        mStackLayout.setAdapter(mAdapter = new Adapter(Arrays.asList("1", "2", "3")));
+        mStackLayout.setAdapter(mAdapter = new Adapter(mData = new ArrayList<>()));
         mStackLayout.addPageTransformer(
                 new StackPageTransformer(),
-                new AlphaTransformer(),
+                new MyAlphaTransformer(),
                 new AngleTransformer()
         );
 
+        mStackLayout.setOnSwipeListener(new StackLayout.OnSwipeListener() {
+            @Override
+            public void onSwiped(View swipedView, int swipedItemPos, boolean isSwipeLeft, int itemLeft) {
+                toast((isSwipeLeft? "往左": "往右") + "移除" + mData.get(swipedItemPos) + "." + "剩余" + itemLeft + "项");
+
+                if(itemLeft < 5){
+                    loadData(++ curPage);
+                }
+            }
+        });
+    }
+
+    int curPage = 0;
+
+    private void loadData(final int page) {
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                mAdapter.setData(Arrays.asList("5", "6", "7", "8", "9", "10", "11", "12"));
+                mAdapter.getData().addAll(Arrays.asList(String.valueOf(page*3), String.valueOf(page*3+1), String.valueOf(page*3+2)));
                 mAdapter.notifyDataSetChanged();
             }
-        }, 4000);
+        }, 1000);
     }
 
     class Adapter extends StackLayout.Adapter<Adapter.ViewHolder>{
@@ -54,6 +72,10 @@ public class MainActivity extends AppCompatActivity {
 
         public void setData(List<String> data) {
             mData = data;
+        }
+
+        public List<String> getData() {
+            return mData;
         }
 
         public Adapter(List<String> data) {
@@ -91,5 +113,9 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+    }
+
+    void toast(String msg){
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
     }
 }
