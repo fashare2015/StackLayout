@@ -35,7 +35,7 @@ public final class AngleTransformer extends StackLayout.PageTransformer {
         view.setPivotX(pageWidth/2);
         view.setPivotY(pageHeight);
 
-        if (position >= -1 && position <= 0) { // [-1,0]
+        if (position > -1 && position <= 0) { // (-1,0]
             view.setVisibility(View.VISIBLE);
 
             view.setRotation((mMaxAngle - (mMaxAngle-mMinAngle) * Math.abs(position)) * (isSwipeLeft? 1: -1));

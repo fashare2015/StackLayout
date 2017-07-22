@@ -27,7 +27,7 @@ public final class AlphaTransformer extends StackLayout.PageTransformer {
 
     @Override
     public void transformPage(View view, float position, boolean isSwipeLeft) {
-        if (position >= -1 && position <= 0) { // [-1,0]
+        if (position > -1 && position <= 0) { // (-1,0]
             view.setVisibility(View.VISIBLE);
 
             view.setAlpha(mMaxAlpha - (mMaxAlpha-mMinAlpha) * Math.abs(position));

@@ -1,12 +1,5 @@
 package com.fashare.stack_layout.transformer;
 
-/**
- * User: fashare(153614131@qq.com)
- * Date: 2017-05-10
- * Time: 03:28
- * <br/><br/>
- */
-
 import android.view.View;
 
 import com.fashare.stack_layout.StackLayout;
@@ -63,11 +56,11 @@ public final class StackPageTransformer extends StackLayout.PageTransformer {
         if (view.isClickable())
             view.setClickable(false);
 
-        if (position < -1) { // [-Infinity,-1)
+        if (position == -1) { // [-1]: 完全移出屏幕, 待删除
             // This page is way off-screen to the left.
             view.setVisibility(View.GONE);
 
-        } else if (position < 0) { // [-1,0)
+        } else if (position < 0) { // (-1,0): 拖动中
             // Use the default slide transition when moving to the left page
             view.setVisibility(View.VISIBLE);
 
@@ -75,7 +68,7 @@ public final class StackPageTransformer extends StackLayout.PageTransformer {
             view.setScaleX(mMaxScale);
             view.setScaleY(mMaxScale);
 
-        } else if (position <= bottomPos) { // [0, mStackCount-1]
+        } else if (position <= bottomPos) { // [0, mStackCount-1]: 堆栈中
             int index = (int)position;  // 整数部分
             float minScale = mMaxScale * (float) Math.pow(mPowBase, index+1);
             float maxScale = mMaxScale * (float) Math.pow(mPowBase, index);
@@ -83,10 +76,10 @@ public final class StackPageTransformer extends StackLayout.PageTransformer {
 
             view.setVisibility(View.VISIBLE);
 
-            // Counteract the default slide transition
+            // 从上至下, 调整堆叠位置
             view.setTranslationY(- pageHeight * (1-mMaxScale) * (bottomPos-position) / bottomPos);
 
-            // Scale the page down (between minScale and maxScale)
+            // 从上至下, 调整卡片大小
             float scaleFactor = minScale + (maxScale - minScale) * (1 - Math.abs(position - index));
             view.setScaleX(scaleFactor);
             view.setScaleY(scaleFactor);
@@ -97,8 +90,7 @@ public final class StackPageTransformer extends StackLayout.PageTransformer {
                     view.setClickable(true);
             }
 
-        } else { // (mStackCount-1, +Infinity]
-            // This page is way off-screen to the right.
+        } else { // (mStackCount-1, +Infinity]: 待显示(堆栈中展示不下)
             view.setVisibility(View.GONE);
         }
     }

@@ -57,8 +57,6 @@ public class ScrollManager {
         public void run() {
             if (mViewDragHelper != null){
                 if(mViewDragHelper.continueSettling(true)) {
-                    if(mScrollCallback != null && mFinalLeft - mOriginLeft != 0)
-                        mScrollCallback.onProgress(mView, Math.abs(mView.getLeft() - mOriginLeft) / Math.abs(mFinalLeft - mOriginLeft));
                     ViewCompat.postOnAnimation(mView, this);    // 递归调用
                 }else{
                     if(mScrollCallback != null)
@@ -69,8 +67,6 @@ public class ScrollManager {
     }
 
     public interface Callback{
-        void onProgress(View view, float scale);
-
         void onComplete(View view);
     }
 }

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.database.DataSetObservable;
 import android.database.DataSetObserver;
 import android.support.annotation.NonNull;
+import android.support.v4.view.ViewPager;
 import android.support.v4.widget.ViewDragHelper;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
@@ -19,27 +20,23 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Created by jinliangshan on 17/5/9.
+ * Created by fashare on 17/5/9.
+ *
+ * 层叠卡片控件
  */
 public class StackLayout extends FrameLayout {
     public static final String TAG = "StackLayout";
 
     public StackLayout(Context context) {
         super(context);
-        init();
     }
 
     public StackLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
-        init();
     }
 
     public StackLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        init();
-    }
-
-    private void init() {
     }
 
     // ------ Adapter ------
@@ -57,9 +54,14 @@ public class StackLayout extends FrameLayout {
 
     private void onSetAdapter(Adapter adapter) {
         adapter.registerDataSetObserver(mItemObserver);
+        setCurrentItem(0);
         mItemObserver.dataChanged(adapter);
     }
 
+    /**
+     * 类似 RecyclerView.Adapter
+     * @param <VH> {@link ViewHolder}
+     */
     public static abstract class Adapter<VH extends ViewHolder>{
         public static Adapter<?> EMPTY = new Adapter<ViewHolder>() {
             @Override
@@ -136,9 +138,16 @@ public class StackLayout extends FrameLayout {
             dataChanged(mAdapter);
         }
 
+        private boolean isDataChangedWhileScrolling = false;
+
         private void dataChanged(Adapter adapter) {
-            // remove 前, 取消所有动画
-            mViewDragHelper.abort();
+            // 滑动过程中记录数据数据已脏, 待滑动结束刷新数据
+            if(mViewDragHelper.getViewDragState() != ViewDragHelper.STATE_IDLE){
+                isDataChangedWhileScrolling = true;
+                return ;
+            }
+            isDataChangedWhileScrolling = false;
+
             StackLayout.this.removeAllViews();
             for(int i=getCurrentItem(); i<adapter.getItemCount(); i ++) {
                 ViewHolder viewHolder = adapter.getViewHolder(StackLayout.this, i);
@@ -174,8 +183,9 @@ public class StackLayout extends FrameLayout {
         // 仅捕获 topChild, 即 最顶上的卡片 可拖动
         @Override
         public boolean tryCaptureView(View child, int pointerId) {
-//            Log.d(TAG, "tryCaptureView: " + child.getTag(R.id.sl_item_pos));
-            return ViewHolder.getPosition(child) == getCurrentItem();
+//            Log.d(TAG, "tryCaptureView: " + ViewHolder.getPosition(child) + ", cur: " + getCurrentItem());
+            return mViewDragHelper.getViewDragState() == ViewDragHelper.STATE_IDLE  // 空闲状态
+                    && ViewHolder.getPosition(child) == getCurrentItem();           // 且是最上面的卡片, 才可捕获
         }
 
         @Override
@@ -200,46 +210,39 @@ public class StackLayout extends FrameLayout {
 
         @Override
         public void onViewPositionChanged(View changedView, int left, int top, int dx, int dy) {
-//            Log.d(TAG, "onViewPositionChanged: " + changedView.getTag(R.id.sl_item_pos));
-            if(!tryCaptureView(changedView, 0)) // 有时候 changedView 和 getCurrentItem 会不一致, 还得再判断一下
-                return ;
+//            Log.d(TAG, "onViewPositionChanged: " + ViewHolder.getPosition(changedView));
             int totalRange = mParent.getWidth();
-            float position = (1.0f * (changedView.getLeft() - 0))/totalRange;
-            transformPage(position, changedView.getLeft() < 0);
+            float position = (1.0f * (left - 0))/totalRange;
+            transformPage(position, left < 0);
         }
 
         // 手指释放的时候回调
         @Override
-        public void onViewReleased(View releasedChild, float xvel, float yvel) {
-//            Log.d(TAG, "onViewReleased: " + releasedChild.getTag(R.id.sl_item_pos));
-            if(!tryCaptureView(releasedChild, 0))
-                return ;
+        public void onViewReleased(final View releasedChild, float xvel, float yvel) {
+//            Log.d(TAG, "onViewReleased: " + ViewHolder.getPosition(releasedChild));
             final int totalRange = mParent.getWidth();
             final int left = releasedChild.getLeft();
             if(Math.abs(left - 0) < totalRange/2) {
                 getScrollManager().smoothScrollTo(releasedChild, 0, 0, new ScrollManager.Callback() {
                     @Override
-                    public void onProgress(View view, float scale) {
-//                        Log.d(TAG, scale + "");
+                    public void onComplete(View view) {
+//                        Log.d(TAG, "onViewReleased: cancel" + ViewHolder.getPosition(releasedChild));
+                        if(mItemObserver.isDataChangedWhileScrolling)
+                            mItemObserver.dataChanged(mAdapter);
                     }
-
-                    @Override
-                    public void onComplete(View view) {}
                 });
 
             }else {
                 getScrollManager().smoothScrollTo(releasedChild, totalRange * (left < 0 ? -1 : 1), releasedChild.getTop(), new ScrollManager.Callback() {
                     @Override
-                    public void onProgress(View view, float scale) {
-//                        Log.d(TAG, scale + "");
-                    }
-
-                    @Override
                     public void onComplete(View view) {
+//                        Log.d(TAG, "onViewReleased: remove" + ViewHolder.getPosition(releasedChild));
                         removeView(view);
-//                        addView(view, 0);
                         setCurrentItem(getCurrentItem() + 1);
                         mOnSwipeListener.onSwiped(view, ViewHolder.getPosition(view), left < 0, mAdapter.getItemCount() - getCurrentItem());
+
+                        if(mItemObserver.isDataChangedWhileScrolling)
+                            mItemObserver.dataChanged(mAdapter);
                     }
                 });
             }
@@ -268,8 +271,22 @@ public class StackLayout extends FrameLayout {
         mPageTransformerList.addAll(Arrays.asList(pageTransformerList));
     }
 
+    /**
+     * 卡片滑动动画接口, 类似 {@link ViewPager.PageTransformer}
+     */
     public static abstract class PageTransformer {
-        public abstract void transformPage(View otherPage, float position, boolean isSwipeLeft);
+        /**
+         * 根据 position 做相应的动画, 其中 position:
+         *  [-1, -1]                -> 完全移出屏幕, 待remove状态
+         *  (-1, 0)                 -> 手指拖动状态
+         *  [0, 栈内页面数)           -> 栈中状态
+         *  [栈内页面数, 总页面数)     -> 显示不下, 待显示状态
+         *
+         * @param page          各卡片的根布局, 即 {@link ViewHolder#itemView }
+         * @param position      各卡片的位置
+         * @param isSwipeLeft   向左滑动
+         */
+        public abstract void transformPage(View page, float position, boolean isSwipeLeft);
     }
 
     private void transformPage(float topPagePos, boolean isSwipeLeft) {
@@ -305,12 +322,23 @@ public class StackLayout extends FrameLayout {
         mOnSwipeListener = onSwipeListener;
     }
 
+    /**
+     * 滑动事件监听
+     */
     public static abstract class OnSwipeListener{
         public static final OnSwipeListener EMPTY = new OnSwipeListener() {
             @Override
             public void onSwiped(View swipedView, int swipedItemPos, boolean isSwipeLeft, int itemLeft) {}
         };
 
+        /**
+         * 已被移除屏幕时回调. 另外, 可以根据 itemLeft, 决定何时加载更多.
+         *
+         * @param swipedView        被移除屏幕的view
+         * @param swipedItemPos     swipedView 对应的 AdapterPos
+         * @param isSwipeLeft       往左滑动
+         * @param itemLeft          当前剩余的item个数 (栈中的 + 待显示的)
+         */
         public abstract void onSwiped(View swipedView, int swipedItemPos, boolean isSwipeLeft, int itemLeft);
     }
 }

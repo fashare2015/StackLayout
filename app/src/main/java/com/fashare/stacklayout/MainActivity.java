@@ -3,7 +3,6 @@ package com.fashare.stacklayout;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.CardView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,6 +19,12 @@ import java.util.List;
 import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
+    static List<Integer> sRandomColors = new ArrayList<>();
+    static{
+        for(int i=0; i<100; i++)
+            sRandomColors.add(new Random().nextInt() | 0xff000000);
+    }
+
     StackLayout mStackLayout;
     Adapter mAdapter;
 
@@ -38,9 +43,9 @@ public class MainActivity extends AppCompatActivity {
         mStackLayout = (StackLayout) findViewById(R.id.stack_layout);
         mStackLayout.setAdapter(mAdapter = new Adapter(mData = new ArrayList<>()));
         mStackLayout.addPageTransformer(
-                new StackPageTransformer(),
-                new MyAlphaTransformer(),
-                new AngleTransformer()
+                new StackPageTransformer(),     // 堆叠
+                new MyAlphaTransformer(),       // 渐变
+                new AngleTransformer()          // 角度
         );
 
         mStackLayout.setOnSwipeListener(new StackLayout.OnSwipeListener() {
@@ -48,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
             public void onSwiped(View swipedView, int swipedItemPos, boolean isSwipeLeft, int itemLeft) {
                 toast((isSwipeLeft? "往左": "往右") + "移除" + mData.get(swipedItemPos) + "." + "剩余" + itemLeft + "项");
 
+                // 少于5条, 加载更多
                 if(itemLeft < 5){
                     loadData(++ curPage);
                 }
@@ -90,7 +96,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onBindViewHolder(ViewHolder holder, final int position) {
             holder.mTextView.setText(mData.get(position));
-            ((CardView)holder.itemView).setCardBackgroundColor(new Random().nextInt() | 0xff000000);
+            holder.itemView.findViewById(R.id.layout_content).setBackgroundColor(sRandomColors.get(position%sRandomColors.size()));
 
             holder.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override

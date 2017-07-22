@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     xmlns:tools="http://schemas.android.com/tools"
     app:cardCornerRadius="6dp"
-    app:cardBackgroundColor="#aaaaaa">
+    app:cardBackgroundColor="@android:color/transparent">
 
     <FrameLayout
         android:id="@+id/layout_content"

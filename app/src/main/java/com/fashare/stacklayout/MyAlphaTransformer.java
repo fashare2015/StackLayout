@@ -36,12 +36,14 @@ public final class MyAlphaTransformer extends StackLayout.PageTransformer {
         ivDelete.setAlpha(mMinAlpha);
         contentView.setAlpha(mMaxAlpha);
 
-        if (position >= -1 && position <= 0) { // [-1,0]
+        if (position > -1 && position <= 0) { // [-1,0]
             contentView.setVisibility(View.VISIBLE);
 
+            // 渐变
             float diffAlpha = (mMaxAlpha-mMinAlpha) * Math.abs(position);
             contentView.setAlpha(mMaxAlpha - diffAlpha);
 
+            // 向左滑: 显示"爱心"; 向右滑: 显示"叉叉"
             if(isSwipeLeft)
                 ivLike.setAlpha(diffAlpha);
             else
