@@ -85,7 +85,8 @@ mStackLayout.setOnSwipeListener(new StackLayout.OnSwipeListener() {
     }
 });
 ```
-
+# 实现细节
+[控件实现细节介绍](控件实现细节介绍.md)
 
 # 参考
 https://github.com/flschweiger/SwipeStack
