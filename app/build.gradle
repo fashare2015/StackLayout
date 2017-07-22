@@ -28,5 +28,6 @@ dependencies {
     compile 'com.android.support:appcompat-v7:24.2.0'
     compile 'com.android.support:cardview-v7:24.2.0'
 
-    compile project(path: ':stack-layout')
+//    compile project(path: ':stack-layout')
+    compile 'com.github.fashare2015:StackLayout:1.0.0'
 }
