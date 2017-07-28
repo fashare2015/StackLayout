@@ -2,6 +2,7 @@ package com.fashare.stacklayout;
 
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,6 +26,7 @@ public class MainActivity extends AppCompatActivity {
             sRandomColors.add(new Random().nextInt() | 0xff000000);
     }
 
+    SwipeRefreshLayout mRefreshLayout;
     StackLayout mStackLayout;
     Adapter mAdapter;
 
@@ -40,6 +42,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initView() {
+        mRefreshLayout = (SwipeRefreshLayout)findViewById(R.id.srl_refresh);
+        mRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                new Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        int page = 0;
+                        curPage = 0;
+                        mData = new ArrayList<>(Arrays.asList(String.valueOf(page*3), String.valueOf(page*3+1), String.valueOf(page*3+2)));
+                        mStackLayout.setAdapter(mAdapter = new Adapter(mData));
+                        mRefreshLayout.setRefreshing(false);
+                    }
+                }, 1000);
+            }
+        });
+
         mStackLayout = (StackLayout) findViewById(R.id.stack_layout);
         mStackLayout.setAdapter(mAdapter = new Adapter(mData = new ArrayList<>()));
         mStackLayout.addPageTransformer(

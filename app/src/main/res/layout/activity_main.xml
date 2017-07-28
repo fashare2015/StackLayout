@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
-    android:id="@+id/activity_main"
+
+<android.support.v4.widget.SwipeRefreshLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/srl_refresh"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
     android:clipChildren="false">
 
     <com.fashare.stack_layout.StackLayout
@@ -13,4 +13,4 @@
         android:layout_height="500dp"
         android:orientation="vertical"/>
 
-</RelativeLayout>
+</android.support.v4.widget.SwipeRefreshLayout>
